@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "Zero-install screen documentation platform",
   "private": true,
-  "workspaces": [
-    "web-app",
-    "backend"
-  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:web-app\"",
     "dev:web-app": "cd web-app && npm run dev",
