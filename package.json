@@ -1,0 +1,23 @@
+{
+  "name": "screen-docs-platform",
+  "version": "1.0.0",
+  "description": "Zero-install screen documentation platform",
+  "private": true,
+  "workspaces": [
+    "web-app",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:web-app\"",
+    "dev:web-app": "cd web-app && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build": "npm run build:web-app && npm run build:backend",
+    "build:web-app": "cd web-app && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "install:all": "npm install && cd web-app && npm install && cd ../backend && npm install",
+    "clean": "rm -rf web-app/node_modules backend/node_modules node_modules web-app/dist backend/dist"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

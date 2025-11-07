@@ -11,12 +11,15 @@ yarn.lock
 .env.local
 .env.production
 .env.*.local
+backend/.env
 
 # Build outputs
 dist/
 build/
 .next/
 out/
+web-app/dist/
+backend/dist/
 
 # IDE
 .vscode/
@@ -42,6 +45,7 @@ playwright-report/
 # Uploads
 uploads/
 temp/
+backend/uploads/
 
 # Docker
 docker-compose.override.yml
@@ -56,3 +60,6 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+
+# Vite
+.vite/
