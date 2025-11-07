@@ -2,92 +2,172 @@
 
 ## Overview
 
-The Video Transcription & Documentation Platform is built as a modern, scalable microservices architecture designed to handle video processing, AI transcription, narration generation, and multi-format exports.
+The **Screen Docs** platform is built as a modern, scalable web-first architecture with **zero-install screen recording** as its core differentiator. The system uses browser-native MediaStream APIs for capture, microservices for AI processing, and multi-format export generation.
+
+## Key Architectural Principle
+
+**Web-First, Extension-Optional**: Unlike competitors (Guidde), we prioritize web-based recording using native browser APIs, with the Chrome extension serving as an optional enhancement for power users.
 
 ## High-Level Architecture
 
 ```
-┌─────────────────┐
-│  Chrome         │
-│  Extension      │◄────┐
-└─────────────────┘     │
-                        │
-┌─────────────────┐     │
-│  Frontend       │     │
-│  (React)        │◄────┤  HTTPS
-└─────────────────┘     │
-                        │
-        │               │
-        ▼               │
-┌─────────────────┐     │
-│  Load Balancer  │◄────┘
-│  (Nginx/ALB)    │
-└─────────────────┘
-        │
-        ▼
-┌─────────────────────────────────────┐
-│         API Gateway                  │
-│     (Rate Limiting, Auth)           │
-└─────────────────────────────────────┘
-        │
-        ├───────────┬─────────────┬───────────┐
-        ▼           ▼             ▼           ▼
-    ┌──────┐  ┌──────────┐  ┌─────────┐ ┌──────────┐
-    │ API  │  │ Video    │  │ Export  │ │ Worker   │
-    │Server│  │Processor │  │ Service │ │ Queue    │
-    └──────┘  └──────────┘  └─────────┘ └──────────┘
-        │           │             │           │
-        └───────────┴─────────────┴───────────┘
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
-    ┌────────┐            ┌──────────┐
-    │Database│            │  Redis   │
-    │PostreSQL            │  Cache   │
-    └────────┘            └──────────┘
+┌─────────────────────────────────────────┐
+│     Web App (PRIMARY RECORDER)          │
+│  ┌───────────────────────────────────┐  │
+│  │  MediaRecorder API                 │  │
+│  │  • getDisplayMedia() [screen]      │  │
+│  │  • getUserMedia() [camera/mic]     │  │
+│  │  • Canvas API [PiP overlay]        │  │
+│  └───────────────────────────────────┘  │
+│              ↓                           │
+│  ┌───────────────────────────────────┐  │
+│  │  WebAssembly Processor             │  │
+│  │  • Real-time compression           │  │
+│  │  • Frame extraction                │  │
+│  │  • Action detection                │  │
+│  └───────────────────────────────────┘  │
+│              ↓                           │
+│  ┌───────────────────────────────────┐  │
+│  │  Chunked Upload Pipeline           │  │
+│  │  • S3 direct upload                │  │
+│  │  • Progress tracking               │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+              ↓ HTTPS
+┌─────────────────────────────────────────┐
+│  Chrome Extension (OPTIONAL)            │ ◄─── Power users only
+│  • System audio (all apps)              │
+│  • Background recording                 │
+│  • Desktop shortcuts                    │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│     Load Balancer (Nginx/ALB)           │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│         API Gateway                      │
+│     • Rate Limiting                      │
+│     • Authentication (JWT)               │
+│     • CORS handling                      │
+└─────────────────────────────────────────┘
+              ↓
+    ┌─────────┴─────────┬─────────┬───────────┐
+    ▼                   ▼         ▼           ▼
+┌──────────┐  ┌──────────────┐  ┌────────┐ ┌────────┐
+│   API    │  │   Video      │  │ Export │ │Worker  │
+│  Server  │  │  Processor   │  │Service │ │ Queue  │
+└──────────┘  └──────────────┘  └────────┘ └────────┘
+    │              │                │          │
+    └──────────────┴────────────────┴──────────┘
+                   ↓
+    ┌──────────────┴──────────────┐
+    ▼                             ▼
+┌──────────┐               ┌──────────┐
+│PostgreSQL│               │  Redis   │
+│ Database │               │  Cache   │
+└──────────┘               └──────────┘
 
-    ┌─────────────────────────────────┐
-    │     AI/ML Services              │
-    ├─────────────────────────────────┤
-    │ • Whisper (Transcription)       │
-    │ • GPT-4 (Step Detection)        │
-    │ • ElevenLabs/Azure (Narration)  │
-    │ • Computer Vision (PII)         │
-    └─────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│     AI/ML Services (External APIs)      │
+├─────────────────────────────────────────┤
+│ • OpenAI Whisper (Transcription)        │
+│ • GPT-4 (Step Detection & Titles)       │
+│ • ElevenLabs/Azure (AI Narration)       │
+│ • Computer Vision (PII Detection)       │
+└─────────────────────────────────────────┘
                 │
                 ▼
-    ┌─────────────────────────────────┐
-    │    Cloud Storage (S3/GCS)       │
-    │  • Video Files                  │
-    │  • Exports                      │
-    │  • Assets                       │
-    └─────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│    Cloud Storage (S3/GCS) + CDN         │
+│  • Original recordings                  │
+│  • Processed videos                     │
+│  • Exports (PDF/Word/HTML)              │
+│  • Assets (thumbnails, frames)          │
+└─────────────────────────────────────────┘
 ```
 
 ## Core Components
 
 ### 1. Frontend Applications
 
-#### React Web Application
+#### Web App (PRIMARY - Zero-Install Recorder) 🎯
+
+**Our #1 Competitive Advantage**: No installation required, works directly in browser.
+
 - **Technology**: React 18 + TypeScript + TailwindCSS
 - **State Management**: Zustand
-- **Routing**: React Router v6
 - **Build Tool**: Vite
-- **Key Features**:
-  - Video upload and management
-  - Timeline editor for steps
-  - Real-time processing status
-  - Export configuration
-  - Analytics dashboard
+- **WebWorkers**: Background video processing
+- **WebAssembly**: Client-side compression
 
-#### Chrome Extension
+**Recording Engine**:
+```
+User clicks "Record" →
+  getDisplayMedia() prompts screen selection →
+    MediaRecorder captures stream →
+      WebAssembly compresses chunks →
+        Chunked upload to S3 →
+          Backend processing queue
+```
+
+**Key Features**:
+- ✅ **Zero-install screen recording** (MediaStream API)
+- ✅ Screen + webcam + microphone capture
+- ✅ Real-time preview and controls
+- ✅ Canvas-based picture-in-picture overlay
+- ✅ Client-side compression (WASM)
+- ✅ Chunked upload for large files
+- ✅ Action tracking for timeline editing
+- ✅ Video library and management
+- ✅ Timeline editor for steps
+- ✅ Export configuration
+- ✅ Analytics dashboard
+
+**Browser Support**:
+- Chrome 72+
+- Firefox 66+
+- Safari 13+
+- Edge 79+
+
+**Technical Stack**:
+```typescript
+// Core recording hook
+import { useScreenRecorder } from '@/hooks/useScreenRecorder';
+
+// WebWorker for compression
+import VideoWorker from '@/workers/video.worker?worker';
+
+// WASM compression module
+import { compressVideo } from '@/wasm/compressor';
+```
+
+See [docs/WEB_RECORDING.md](./WEB_RECORDING.md) for implementation details.
+
+---
+
+#### Chrome Extension (OPTIONAL - Power Users Only)
+
+**Purpose**: Optional enhancement for advanced users who need features beyond web capabilities.
+
 - **Manifest**: V3
-- **Permissions**: `tabs`, `activeTab`, `desktopCapture`, `storage`
-- **Features**:
-  - Screen + webcam + microphone capture
-  - One-click recording start/stop
-  - Local storage before upload
-  - Direct API communication
+- **Permissions**: `desktopCapture`, `tabs`, `storage`
+- **Usage**: Only for users who need system audio capture or background recording
+
+**Enhanced Features** (vs. Web App):
+- ✨ System audio capture from ALL applications
+- ✨ Background recording without browser tab
+- ✨ Global keyboard shortcuts
+- ✨ Advanced capture settings
+- ✨ Desktop app integration
+
+**Install Base**: Target <5% of users (power users only)
+
+**Why Optional**:
+- Web app handles 95% of use cases
+- No installation friction for majority
+- Cross-browser web app vs. Chrome-only extension
+- Easier onboarding without extension store
 
 ### 2. Backend Services
 
