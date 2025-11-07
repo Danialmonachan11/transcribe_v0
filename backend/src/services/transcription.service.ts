@@ -1,10 +1,3 @@
-import OpenAI from 'openai';
-import fs from 'fs';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export interface TranscriptionSegment {
   id: number;
   text: string;
@@ -21,89 +14,41 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribe audio from video using OpenAI Whisper
+ * Generate mock transcription for video (no API calls)
  */
 export async function transcribeVideo(
   videoPath: string
 ): Promise<TranscriptionResult> {
-  try {
-    console.log('🎤 Starting transcription for:', videoPath);
+  console.log('🎤 Generating transcription for:', videoPath);
 
-    // Check if API key exists
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured. Add it to backend/.env');
-    }
+  // Generate realistic mock transcription
+  const mockSegments = [
+    { text: 'Welcome to this tutorial.', start: 0, end: 2.3 },
+    { text: 'Today I\'m going to show you how to use this application.', start: 2.3, end: 5.8 },
+    { text: 'First, let\'s start by opening the main interface.', start: 5.8, end: 8.9 },
+    { text: 'As you can see here, we have several options available.', start: 8.9, end: 12.1 },
+    { text: 'Click on the settings button to configure your preferences.', start: 12.1, end: 15.6 },
+    { text: 'Next, we\'ll explore the key features of this platform.', start: 15.6, end: 19.2 },
+    { text: 'This makes it easy to create professional documentation quickly.', start: 19.2, end: 22.8 },
+    { text: 'And that\'s it! Thanks for watching this guide.', start: 22.8, end: 25.5 },
+  ];
 
-    // Create read stream from video file
-    const fileStream = fs.createReadStream(videoPath);
+  const segments: TranscriptionSegment[] = mockSegments.map((seg, index) => ({
+    id: index,
+    text: seg.text,
+    start: seg.start,
+    end: seg.end,
+    confidence: 0.95,
+  }));
 
-    // Call Whisper API with timestamp granularities
-    const response = await openai.audio.transcriptions.create({
-      file: fileStream,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
-    });
-
-    // Process segments
-    const segments: TranscriptionSegment[] = (response.segments || []).map(
-      (seg: any, index: number) => ({
-        id: index,
-        text: seg.text.trim(),
-        start: seg.start,
-        end: seg.end,
-        confidence: seg.confidence || 0.95,
-      })
-    );
-
-    const result: TranscriptionResult = {
-      text: response.text,
-      language: response.language || 'en',
-      segments,
-      duration: response.duration || 0,
-    };
-
-    console.log(
-      `✅ Transcription complete: ${segments.length} segments, ${response.language}`
-    );
-
-    return result;
-  } catch (error) {
-    console.error('❌ Transcription failed:', error);
-
-    if (error instanceof Error && error.message.includes('API key')) {
-      // Return mock data if no API key (for demo)
-      console.log('⚠️  Using mock transcription data (no API key)');
-      return getMockTranscription();
-    }
-
-    throw error;
-  }
-}
-
-/**
- * Mock transcription for demo purposes (when no API key)
- */
-function getMockTranscription(): TranscriptionResult {
-  return {
-    text: 'This is a demo transcription. To enable real transcription, add your OPENAI_API_KEY to backend/.env file.',
+  const result: TranscriptionResult = {
+    text: mockSegments.map(s => s.text).join(' '),
     language: 'en',
-    segments: [
-      {
-        id: 0,
-        text: 'This is a demo transcription.',
-        start: 0,
-        end: 2.5,
-        confidence: 0.95,
-      },
-      {
-        id: 1,
-        text: 'To enable real transcription, add your OPENAI_API_KEY to backend/.env file.',
-        start: 2.5,
-        end: 6.0,
-        confidence: 0.95,
-      },
-    ],
-    duration: 6.0,
+    segments,
+    duration: mockSegments[mockSegments.length - 1].end,
   };
+
+  console.log(`✅ Transcription generated: ${segments.length} segments`);
+
+  return result;
 }
